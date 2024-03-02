@@ -466,7 +466,7 @@ The following is a detailed description of the vulnerabilities and the advise to
 
 #### Description
 
-The executable file `exploit_me` is vulnerable to a buffer overflow allowing the attacker to **execute arbitrary code** on the machine as the privileged `root` user (see Result (2.) for explanation). 
+The executable file `exploit_me` is vulnerable to a buffer overflow allowing the attacker to **execute arbitrary code** on the machine as the privileged `root` user (see [Result (2.)](#2-insecure-use-of-setuid-bit-in-exploit_me) for explanation). 
 
 Risk: This allows the attacker to access any data on the machine e.g. sensitive data such as password hashes, user data or log files. If the machine is part of a company network, this would gain an attacker foothold in the network and may allow lateral movement between hosts.
 
@@ -507,13 +507,13 @@ The executable `exploit_me` is has several configurations which may be exploitab
 - No PIE
 - No Stack Canary
 
-These settings significantly reduce the attack complexity, especially during the existence of buffer overflow (see result (1.)). 
+These settings significantly reduce the attack complexity, especially during the existence of buffer overflow (see [result (1.)](#1-buffer-overflow-in-exploit_me)). 
 
 Risk: This may lead to arbitrary code execution, possibly allowing the attacker to access any data on the machine e.g. sensitive data such as password hashes, user data or log files. If the machine is part of a company network, this would gain an attacker foothold in the network and may allow lateral movement between hosts.
 
 #### Advise
 
-- Enable all security features during the compilation process of the code, especially Stack Canary which would have made result (1.) unfeasible.
+- Enable all security features during the compilation process of the code, especially Stack Canary which would have made [result (1.)](#1-buffer-overflow-in-exploit_me) unfeasible.
 - Perform regular code reviews and penetration tests to find executables missing this configuration.
 
 ### 4. Insecure SSH Authentication (Password)
