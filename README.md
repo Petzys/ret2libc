@@ -528,8 +528,6 @@ Risk: This may lead to arbitrary code execution, possibly allowing the attacker 
 
 #### Description
 
-Vulnerabilities, Risk, Possible Impact
-
 User `andy` is allowed to connect to the server using insecure [SSH password authentication](https://datatracker.ietf.org/doc/html/rfc4252#section-8). This allows for brute force attacks and unauthorized access to the server, especially if the password is weak.
 
 Risk: An attacker may gain unauthorized access to the server. This may lead to data breaches, unauthorized access to sensitive data and modification of data.
