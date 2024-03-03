@@ -1,10 +1,10 @@
 # ret2libc Walkthrough
 
-This is detailed writeup for the TryHackMe room [ret2libc](https://tryhackme.com/room/ret2libc) by [0x21q](https://tryhackme.com/p/0x21q). It aims to provide more in-depth explanations so that anyone with a basic knowledge of reverse engineering shall be able to understand the following. You should be familiar with tools like `pwntools`, `gdb` and `Ghidra` (for more information see the [Tooling](#tooling) section).
+This is a detailed writeup for the TryHackMe room [ret2libc](https://tryhackme.com/room/ret2libc) by [0x21q](https://tryhackme.com/p/0x21q). It aims to provide more in-depth explanations so that anyone with a basic knowledge of reverse engineering shall be able to understand the following. You should be familiar with tools like `pwntools`, `gdb` and `Ghidra` (for more information see the [Tooling](#tooling) section).
 
 ## Examining the file
 
-We first connect to the target using the ssh credentials presented to us. We first check the current directory for files.
+We first connect to the target using the ssh credentials presented to us. Then we check the current directory for files:
 
 ```bash
 andy@ubuntu:~$ ls -la
@@ -24,6 +24,7 @@ drwx------ 5 andy andy   4096 Sep 12  2021 .local
 ```
 
 On the remote machine, we find the binary `exploit_me` which we will be exploiting in this writeup. 
+
 We find that its `setuid` bit is set, indicated by the `x` on the right of the linux file permissions. This does mean that the binary is allowed to run with the privileges of the user that owns this file (`root` in this case). This may allow us to escalate our privileges since our current user `andy` does not have `root` privileges, which we can check by running
 
 ```bash
@@ -52,11 +53,11 @@ Segmentation fault (core dumped)
 
 The fact that we caused a segmentation fault means that binary is probably vulnerable to a buffer overflow.
 
-A buffer overflow is a vulnerability that occurs when a program writes data to a buffer exceeding its limits and thereby overwriting of other memory locations. This usually leads to a crash of the program but can also be exploited by attackers via overwriting the return address of a function to execute malicious code or ROP chains.
+A buffer overflow is a vulnerability that occurs when a program writes data to a buffer exceeding its limits and thereby overwriting of other memory locations. This usually leads to a crash of the program but can also be exploited by attackers by overwriting the return address of a function to execute malicious code or ROP chains.
 
-Return Oriented programming (ROP) is a computer security exploit technique that allows an attacker to execute code in the presence of security defenses such as executable space protection. It leverages snippets of already present code in the binary called gadgets to construct so called ROP chains. In some cases, these can be used to execute arbitrary code.
+Return Oriented programming (ROP) is a computer security exploit technique that allows an attacker to execute code in the presence of security defenses such as executable space protection. It leverages code snippets called "gadgets" which are already present in the binary or other libraries to construct so called ROP chains. In some cases, these can be used to execute arbitrary code.
 
-To get more information about the file, we run the `file` command on the binary.
+To get more information about `exploit_me`, we run the `file` command on the binary.
 ```bash
 andy@ubuntu:~$ file exploit_me 
 exploit_me: setuid ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, BuildID[sha1]=2c771960dddc76d1e69e8f741185d232c7ee6098, not stripped
@@ -64,6 +65,7 @@ exploit_me: setuid ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamica
 ```
 
 We find that it is a 64bit binary which is dynamically linked. We will talk more about this later on.
+
 We also learn about the calling convention of `exploit_me`. The calling conventions basically describe how functions are called on this type of architecture. The calling conventions tells us where to put our arguments and how to structure our stack in order so successfully run a program.
 For us the most important information we can infer from the calling convention is the way arguments are passed to functions. 
 
@@ -101,7 +103,9 @@ This security boundary greatly increases the complexity of buffer overflow attac
 In this binary, no stack canary is found. This means that there is no need for us to bypass any stack canary which makes the exploit a lot easier.
 
 #### NX (= Non-executable stack)
-NX prevents the execution of any code on the stack. This means that custom shellcode (e.g. by injecting a payload via buffer overflow) cannot be run, therefore we are using Return-Oriented-Programming (short: ROP) to run our exploit. To be precise, we are using a special technique called "ret-to-libc" to run gadgets in the shared library "libc". 
+NX prevents the execution of any code on the stack. 
+
+Since it is enabled here, it means that custom shellcode (e.g. by injecting a payload via buffer overflow) cannot be run. Therefore we are using Return-Oriented-Programming (short: ROP) to run our exploit. To be precise, we are using a special technique called "ret-to-libc" to run gadgets in the shared library "libc". 
 
 #### PIE (= position-independent executable)
 The PIE security measure basically tells us which sections of the binary have ASLR (= Address Space Layout Randomization) enabled. 
@@ -128,7 +132,7 @@ This is a problem, because now we do not know the addresses of the functions in 
 As we have already seen in the previous sections, the binary is vulnerable to buffer overflow. Therefore, we need to find out exactly how many bytes one has to overwrite in order to overwrite in the return address of the function which is our goal. We call this the "offset".
 
 To do this, let's open binary in GDB.
-We can create a pattern to use for finding the offset by 
+We can create a pattern to use for finding the offset by running the following command in GDB:
 
 ```bash
 gef  pattern create
@@ -136,6 +140,7 @@ gef  pattern create
 aaaabaaa[...]
 [+] Saved as '$_gef0'
 ```
+
 We run the binary with `r` and use the generated pattern as the input at our vulnerable point. As expected, the program crashes due to the buffer overflow and `gdb` stops the execution.
 We can then use `pattern search $rsp` to let GDP search for parts of the pattern in the RSP register to find out how many bytes are needed to override the return address. 
 
@@ -180,7 +185,7 @@ To achieve this, we can leverage functions that take pointers and return the val
 Every time the binary is run, we can recalculate the base address of libc which allows us to use library functions. 
 
 ## Analyzing the binary in Ghidra
-We use Ghidra to disassemble and decompile the binary file. For this we need to copy the binary file to our machine. Do this by starting a python server and using `wget` to get the file
+We use Ghidra to disassemble and decompile the binary file. For this we need to copy the binary file to our machine. We do this by starting a python server and using `wget` to get the file.
 
 We first look at the decompiled version of the `main` function to get a feeling of the general behavior of the function
 
@@ -210,7 +215,7 @@ According to the man page, `setuid()` sets the effective `uid` of the current ca
 
 The effective `uid` is mostly used to temporarily change privileges of a program. Setting the real `uid` however, is irreversible for the process.
 
-The value `0` is the `uid` of the `root` user (e.g. the user which has unlimited privileges on linux systems). By setting the value to `0` the process insures to run with full privileges. 
+The value `0` is the `uid` of the `root` user (e.g. the user which has unlimited privileges on linux systems). By setting the value to `0` the process ensures to run with full privileges. 
 
 Usually, the process gains the privileges of the calling user (in this case `andy`) and is only able to reduce its privileges, but as we found out earlier, the executable does have the `setuid` bit set which means that it automatically runs with `root` privileges regardless of the calling users rights.
 
@@ -428,7 +433,7 @@ During the process of creating the exploit, we used several tools to help us. He
 ### Evaluation of the Tools
 
 - Ghidra: 
-  - Ghidra is reverse engineer binaries. It provides a lot of information about the binary and its sections. It also provides a decompiler which can be very helpful to understand the code of the binary.
+  - Ghidra is used to reverse engineer binaries. It provides a lot of information about the binary and its sections. It also contains a decompiler which can be very helpful to understand the code of the binary.
   - As with most reverse engineering tools, it takes some time to get used to the interface and the features of the tool. 
   - Proprietary tools like IDA Pro have more features and may allow for a faster reverse engineering process, but Ghidra is free and open source. 
 - pwntools:
@@ -475,6 +480,7 @@ Risk: This allows the attacker to access any data on the machine e.g. sensitive 
 - Use safe string-operations in program code such as `fgets` or `strncpy` to restrict the number of input characters to a minimum and thereby prohibit buffer overflows. 
 - Use a secure configuration following the recommendations of the following results.
 - Follow secure coding practices and regularly perform security assessments.
+- Perform a white-box penetration test to find and fix vulnerabilities in the code.
 
 ### 2. Insecure Use of `setuid` Bit in `exploit_me`
 
