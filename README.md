@@ -473,7 +473,13 @@ The following is a detailed description of the vulnerabilities and the advise to
 
 The executable file `exploit_me` is vulnerable to a buffer overflow allowing the attacker to **execute arbitrary code** on the machine as the privileged `root` user (see [Result (2.)](#2-insecure-use-of-setuid-bit-in-exploit_me) for explanation). 
 
-Risk: This allows the attacker to access any data on the machine e.g. sensitive data such as password hashes, user data or log files. If the machine is part of a company network, this would gain an attacker foothold in the network and may allow lateral movement between hosts.
+#### Risk
+
+This allows the attacker to access any data on the machine e.g. sensitive data such as password hashes, user data or log files. If the machine is part of a company network, this would gain an attacker foothold in the network and may allow lateral movement between hosts. 
+
+Any user is allowed to execute the file, thereby making this event very likely.
+
+**Therefore, the risk of this finding is high.**
 
 #### Advise 
 
@@ -491,7 +497,13 @@ Risk: This allows the attacker to access any data on the machine e.g. sensitive 
 
 The executable file `exploit_me` has the `setuid` bit, allowing the binary to run with the privileges of its owner `root`. In combination with the fact that any user is allowed to execute the file, it has a buffer overflow and is using `setuid(0)` in the code, this allows for a **privilege escalation**. 
 
-Risk: Unprivileged users may act as the owners of files which have the `setuid`, thereby allowing the unauthorized reading and modification of data as well as possible privilege escalation and thereby full machine compromise.
+#### Risk
+
+Unprivileged users may act as the owners of files which have the `setuid`, thereby allowing the unauthorized reading and modification of data as well as possible privilege escalation and thereby full machine compromise. 
+
+Since this finding only turns into an vulnerability once an attacker found an exploit in the code, the chance of it occurring is low. 
+
+**Therefore, the risk of this finding is medium.**
 
 #### Advise
 
@@ -515,7 +527,11 @@ The executable `exploit_me` is has several configurations which may be exploitab
 
 These settings significantly reduce the attack complexity, especially during the existence of buffer overflow (see [result (1.)](#1-buffer-overflow-in-exploit_me)). 
 
-Risk: This may lead to arbitrary code execution, possibly allowing the attacker to access any data on the machine e.g. sensitive data such as password hashes, user data or log files. If the machine is part of a company network, this would gain an attacker foothold in the network and may allow lateral movement between hosts.
+#### Risk
+
+This may lead to arbitrary code execution, possibly allowing the attacker to access any data on the machine e.g. sensitive data such as password hashes, user data or log files. If the machine is part of a company network, this would gain an attacker foothold in the network and may allow lateral movement between hosts. 
+
+This finding is not very likely as the attacker has to find an exploit in a misconfigured executable first, **thereby this finding has a low risk.**
 
 #### Advise
 
@@ -524,13 +540,20 @@ Risk: This may lead to arbitrary code execution, possibly allowing the attacker 
 
 ### 4. Insecure SSH Authentication (Password)
 
-- Severity: Medium
+- [CVSS:3.1 AV:A/AC:L/PR:N/UI:N/S:C/C:L/I:L/A:N](https://nvd.nist.gov/vuln-metrics/cvss/v3-calculator?vector=AV:A/AC:L/PR:N/UI:N/S:C/C:L/I:L/A:N&version=3.1)
+- Severity: 6.1 (Medium)
 
 #### Description
 
 User `andy` is allowed to connect to the server using insecure [SSH password authentication](https://datatracker.ietf.org/doc/html/rfc4252#section-8). This allows for brute force attacks and unauthorized access to the server, especially if the password is weak.
 
-Risk: An attacker may gain unauthorized access to the server. This may lead to data breaches, unauthorized access to sensitive data and modification of data.
+#### Risk
+
+An attacker may gain unauthorized access to the server. This may lead to data breaches, unauthorized access to sensitive data and modification of data.
+
+Since brute force attacks are possible but slow and phishing requires a lot of effort, the likelihood of this finding being exploited is low. 
+
+**The risk is therefore also low.**
 
 #### Advise
 
