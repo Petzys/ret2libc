@@ -53,7 +53,7 @@ Segmentation fault (core dumped)
 
 The fact that we caused a segmentation fault means that binary is probably vulnerable to a buffer overflow.
 
-A buffer overflow is a vulnerability that occurs when a program writes data to a buffer exceeding its limits and thereby overwriting of other memory locations. This usually leads to a crash of the program but can also be exploited by attackers by overwriting the return address of a function to execute malicious code or ROP chains.
+A buffer overflow is a vulnerability that occurs when a program writes data to a buffer exceeding its limits and thereby overwriting other memory locations. This usually leads to a crash of the program but can also be exploited by attackers by overwriting the return address of a function to execute malicious code or ROP chains.
 
 Return Oriented programming (ROP) is a computer security exploit technique that allows an attacker to execute code in the presence of security defenses such as executable space protection. It leverages code snippets called "gadgets" which are already present in the binary or other libraries to construct so called ROP chains. In some cases, these can be used to execute arbitrary code.
 
@@ -61,7 +61,6 @@ To get more information about `exploit_me`, we run the `file` command on the bin
 ```bash
 andy@ubuntu:~$ file exploit_me 
 exploit_me: setuid ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, BuildID[sha1]=2c771960dddc76d1e69e8f741185d232c7ee6098, not stripped
-
 ```
 
 We find that it is a 64bit binary which is dynamically linked. We will talk more about this later on.
@@ -72,6 +71,7 @@ For us the most important information we can infer from the calling convention i
 Using the previous command output, we can identify the calling convention as `SYSV`:
 
 ![Calling conventions](img/wikipedia.png) 
+
 [Image Source](https://en.wikipedia.org/wiki/X86_calling_conventions)
 
 This information will be important later on.
@@ -96,21 +96,23 @@ RELRO is used to prevent buffer overflows on the global offset table (GOT) which
 In our exploit we do not need to write to the `.got.plt` but it is a nice to have.
 
 #### Stack canary
-Stack canaries are secret, random values which are placed onto the stack just before the return address of a function. The values change with every execution of the binary and are meant to prevent buffer overflows. Before the `ret` of any function in the binary, the integrity of this functions stack canary is checked. If the canary appears to be modified, the programs execution is stopped. 
+Stack canaries are secret, random values which are placed onto the stack just before the return address of a function. The values change with every execution of the binary and are meant to prevent buffer overflows. Before the `ret` of any function in the binary, the integrity of this functions stack canary is checked. If the canary appears to be modified, the programs execution is halted. 
 
 This security boundary greatly increases the complexity of buffer overflow attacks since the attackers goal usually is to overwrite the return address to jump to a malicious payload or execute a ROP chain.
 
 In this binary, no stack canary is found. This means that there is no need for us to bypass any stack canary which makes the exploit a lot easier.
 
 #### NX (= Non-executable stack)
-NX prevents the execution of any code on the stack. 
+NX prevents the execution of any code that is marked non-executable e.g. the stack.
 
 Since it is enabled here, it means that custom shellcode (e.g. by injecting a payload via buffer overflow) cannot be run. Therefore we are using Return-Oriented-Programming (short: ROP) to run our exploit. To be precise, we are using a special technique called "ret-to-libc" to run gadgets in the shared library "libc". 
 
 #### PIE (= position-independent executable)
 The PIE security measure basically tells us which sections of the binary have ASLR (= Address Space Layout Randomization) enabled. 
 
-In case that PIE is enabled, the address of all sections of the binary is randomized on every execution of the binary. In this case, PIE is disabled, meaning that the binary will always start from `0x400000` and is not affected by ASLR.
+In case that PIE is enabled, the address of all sections of the binary is randomized on every execution of the binary. 
+
+In this case, PIE is disabled, meaning that the binary will always start from `0x400000` and is not affected by ASLR.
 
 #### ASLR = Address Space Layout Randomization
 ASLR randomizes the address of all program sections e.g. stack, heap, data, code segment and shared libraries in the memory on every execution to prevent binary exploitation.
@@ -125,8 +127,7 @@ andy@ubuntu:~$ cat /proc/sys/kernel/randomize_va_space
 `2` is considered the most secure setting and is todays default, randomizing the stack, virtual dynamic shared object VDSO page, shared memory regions and data segments.
 
 At first, this seems to contradict our previous investigation that PIE is enabled and the binary is not affected by ASLR. But libc, which is our target in this exploit, is indeed affected since it is a shared library.
-
-This is a problem, because now we do not know the addresses of the functions in libc. Even with finding the randomized addresses once, the layout will change with every execution
+This is a problem, because now we do not know the addresses of the functions in libc. Even with finding the randomized addresses once, the layout will change with every execution.
 
 ## Finding the Offset of the Binary
 As we have already seen in the previous sections, the binary is vulnerable to buffer overflow. Therefore, we need to find out exactly how many bytes one has to overwrite in order to overwrite in the return address of the function which is our goal. We call this the "offset".
@@ -180,7 +181,7 @@ This allows us to calculate addresses of all functions in the libc since the off
 
 ![Base Address to Function](img/libc_to_func.png)
 
-To achieve this, we can leverage functions that take pointers and return the values behind these pointers e.g. `puts`. We do this by calling `puts` with the address of a function already present in `.got.plt` which should give us the real memory address
+To achieve this, we can leverage functions that take pointers and return the values behind these pointers e.g. `puts`. We do this by calling `puts` with the address of a function already present in `.got.plt` which should give us the real memory address.
 
 Every time the binary is run, we can recalculate the base address of libc which allows us to use library functions. 
 
@@ -202,7 +203,7 @@ undefined8 main(void)
   return 0;
 }
 ```
-We see that the function is very simple. The obvious vulnerable function seems to be `gets()`. 
+We see that the function is very simple. The vulnerability seems to be `gets()`. 
 
 `gets()` is a function which reads a string from `stdin` and stores it in a buffer.
 A look at the manpage of `gets()` tell us to `Never  use gets()` since it does not perform any checking on the input length and is therefore sincerely vulnerable to a lot of attacks.
@@ -330,9 +331,9 @@ We do the same for the `libc` since we need its binary to bypass the ASLR. If yo
 To bypass ASLR, we first create our payload. 
 
 We already discussed the basic idea of the bypass earlier. Now we want to go in more detail.
-The idea is to leverage `puts` to return the *runtime* memory address of `gets` from the `.got.plt`. It is important to note here that *calling* any of the functions which are present in the `.plt` (e.g. `puts` or `gets`) is not the challenge here. The challenge is to find the *runtime* memory address. 
+The idea is to leverage `puts` to return the *runtime* memory address of `gets` from the `.got.plt`. It is important to note here that *calling* any of the functions which are present in the `.plt` (e.g. `puts` or `gets`) is not the challenge here and is easily achieved. The challenge is to find the *runtime* memory address which changes at every execution due to ASLR. 
 
-We then use this address to calculate the base address of `libc` which allows us to execute arbitrary gadgets from the `libc`.
+Using the *runtime* memory address of `gets`, we calculate the base address of `libc` which allows us to execute arbitrary gadgets from the `libc`.
 
 The manpage of `puts` tells us that it is getting a pointer as an argument 
 ```
@@ -400,11 +401,11 @@ payload += p64(rop.find_gadget(['pop rdi', 'ret'])[0]) # We need an 'pop rdi' ga
 ```python
 payload += p64(next(libc.search(b'/bin/sh'))) # search() looks for the string 'bin/sh' in the virtual address space of the libc --> Thereby we do not have to put the string into memory ourselves
 ```
-1. Now we do some stack alignment. It is not important why we need that here.
+4. Now we do some stack alignment. It is not important why we need that here.
 ```python
 payload += p64(rop.find_gadget(['ret'])[0]) # We just need this for stack alignment. It is not important why.
 ```
-1. Finally, the arguments for `system` are set and we add the runtime address of it to the stack using our rebased libc.
+5. Finally, the arguments for `system` are set and we add the runtime address of it to the stack using our rebased libc.
 ```python
 payload += p64(libc.symbols.system) # Get the address of the system() function using our newly set base address for the libc
 ```
